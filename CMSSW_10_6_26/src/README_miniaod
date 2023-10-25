@@ -1,0 +1,29 @@
+export SCRAM_ARCH=slc7_amd64_gcc700
+source /cvmfs/cms.cern.ch/cmsset_default.sh
+# Below line only needed one time
+scram p CMSSW CMSSW_10_6_26
+cd CMSSW_10_6_26/src
+eval `scram runtime -sh`
+mkdir KShortLifetime
+cd KShortLifetime
+mkedanlzr
+Type in KShortLifetimeAnalyzer
+cd ..
+scram b
+Edit KShortLifetime/KShortLifetimeAnalyzer/plugins/KShortLifetimeAnalyzer.cc
+- Add headers
+- Edit analyze()
+Edit KShortLifetime/KShortLifetimeAnalyzer/plugins/BuildFile.xml 
+- Add references
+Edit runKShortAnalyzer.py 
+- Add collections
+scram b
+Edit runKShortAnalyzer.py
+cmsRun runKShortAnalyzer.py
+root kshortAnalyze.root
+_file0->cd("kshort")
+h_kshort_mass->Draw()
+tree->Draw("kshort_mass")
+
+Extra info
+edmDumpEventContent /net/cms11/cms11r0/store/mc/RunIISummer20UL18MiniAODv2/GluGluHToZG_ZToLL_M-125_TuneCP5_13TeV-powheg-pythia8/MINIAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2560000/06ABA08A-E2D8-3D4B-9538-76A1098320A5.root
