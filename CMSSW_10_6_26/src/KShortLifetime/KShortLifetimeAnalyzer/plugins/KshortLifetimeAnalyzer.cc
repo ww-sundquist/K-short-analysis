@@ -43,6 +43,8 @@
 #include "TLorentzVector.h"
 
 #include <TGraph.h>
+#include "TH2.h"
+
 //
 // class declaration
 //
@@ -112,8 +114,10 @@ class KShortLifetimeAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResou
       std::vector<float> ks_bkgd_lifetimes;
       TH1D* h_ks_bkgd_lifetimes;
 
-      std::vector<float> ks_distVp;
-      TGraph *s_ks_distVp;
+      std::vector<float> ks_distVp_x;
+      std::vector<float> ks_distVp_y;
+      TH2F* h_ks_distVp;
+//      TGraph* s_ks_distVp;
 };
 
 //
@@ -130,6 +134,7 @@ class KShortLifetimeAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResou
 KShortLifetimeAnalyzer::KShortLifetimeAnalyzer(const edm::ParameterSet& iConfig)
  :
   //tracksToken_(consumes<TrackCollection>(iConfig.getUntrackedParameter<edm::InputTag>("tracks")))
+//  s_tree_(fs_->make<TTree>("scatterTree","Scatter Plot Data")),
   pfcands_(consumes<pat::PackedCandidateCollection>(iConfig.getUntrackedParameter<edm::InputTag>("packedPFCandidates"))),
   kscands_(consumes<reco::VertexCompositePtrCandidateCollection>(iConfig.getUntrackedParameter<edm::InputTag>("slimmedKshortVertices"))),
   primaryVertices_(consumes<reco::VertexCollection>(iConfig.getUntrackedParameter<edm::InputTag>("offlineSlimmedPrimaryVertices"))),
@@ -137,12 +142,19 @@ KShortLifetimeAnalyzer::KShortLifetimeAnalyzer(const edm::ParameterSet& iConfig)
   //secondaryVertices_(consumes<reco::VertexCollection>(iConfig.getUntrackedParameter<edm::InputTag>("offlineSlimmedSecondaryVertices")))
 {
    //now do what ever initialization is needed
-
-//   double ks_distVp_x, ks_distVp_y;
-
    tree_ = fs_->make<TTree>("tree", "tree");
    tree_->Branch("kshort_mass", &kshort_mass);
    h_kshort_mass = fs_->make<TH1D>("h_kshort_mass", "h_kshort_mass", 100, 0.4, 0.6);
+
+   tree_->Branch("ks_distVp_x",&ks_distVp_x);
+   tree_->Branch("ks_distVp_y",&ks_distVp_y);
+
+//   tree_->Branch("ks_distVp",&ks_distVp);
+   h_ks_distVp = fs_->make<TH2F>("h_ks_distVp","h_ks_distVp",30,0,15,40,0,20);
+
+//   s_tree_ = fs_->make<TTree>("s_tree_","s_tree_"); //one possible thing to come back to: does the "" name have to be diff?
+//   s_tree_->Branch("ks_distVp",&ks_distVp);
+//   s_ks_distVp = fs_->make<TGraph>; //am I allowed to do this?
 
    tree_->Branch("pfNeutralHadron_mass", &pfNeutralHadron_mass);
    h_pfNeutralHadron_mass = fs_->make<TH1D>("h_pfNeutralHadron_mass", "h_pfNeutralHadron_mass", 100, 0.4, 0.6);
@@ -159,9 +171,6 @@ KShortLifetimeAnalyzer::KShortLifetimeAnalyzer(const edm::ParameterSet& iConfig)
    tree_->Branch("ksdistances",&ksdistances);
    h_ksdistances = fs_->make<TH1D>("h_ksdistances", "h_ksdistances", 120, 0, 60);
 
-//   tree_->Branch("pvdistances,"&pvdistances);
-//   h_pvdistances = fs_->make<TH1D>("h_pvdistances","h_pvdistances", 20, 0, 5);
-
    tree_->Branch("lambda_mass", &lambda_mass);
    h_lambda_mass = fs_->make<TH1D>("h_lambda_mass", "h_lambda_mass", 100, 1.0, 1.3);
 
@@ -173,13 +182,10 @@ KShortLifetimeAnalyzer::KShortLifetimeAnalyzer(const edm::ParameterSet& iConfig)
 
    tree_->Branch("ks_bkgd_lifetimes", &ks_bkgd_lifetimes);
    h_ks_bkgd_lifetimes = fs_->make<TH1D>("h_ks_bkgd_lifetimes" , "h_ks_bkgd_lifetimes", 30, 0, 8*pow(10,-10));
-
-//   s_tree_ = fs_->make<TTree>("s_tree","s_tree");
+  
+//   double ks_distVp_x, ks_distVp_y; 
 //   s_tree_->Branch("ks_distVp_x",&ks_distVp_x);
-//   s_tree_->Branch("ks_distVp_y",ks_distVp_y);
-
-//   tree_->Branch("ks_distVp", &ks_distVp);
-//   s_ks_distVp = fs_->make<TGraph>("ks_distVp", "ks_distVp");
+//   s_tree_->Branch("ks_distVp_y",&ks_distVp_y);
 }
 
 
@@ -287,16 +293,16 @@ void KShortLifetimeAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
    lamdistances.clear();
    lamlifetimes.clear();
    ks_bkgd_lifetimes.clear();
-   ks_distVp.clear();
+//   ks_distVp_x.clear();
+//   ks_distVp_y.clear();
+//   ks_distVp.clear();
 
 //   s_ks_distVp = fs_->make<TGraph>("ks_distVp","ks_distVp");
-   TTree *s_tree_ = new TTree("scatterTree","Scatter Plot Data");
+//   TTree *s_tree_ = new TTree("scatterTree","Scatter Plot Data");
 
-   Double_t ks_distVp_x, ks_distVp_y;
+//   Double_t ks_distVp_x, ks_distVp_y;
 
 //   s_tree_ = fs_->make<TTree>("s_tree","s_tree");
-   s_tree_->Branch("ks_distVp_x",&ks_distVp_x);
-   s_tree_->Branch("ks_distVp_y",ks_distVp_y);
 
    std::cout << "Run: "<< iEvent.id().run() << " luminosity block: "<< iEvent.eventAuxiliary().luminosityBlock() <<" event: "<< iEvent.id().event() << std::endl;
 
@@ -504,10 +510,15 @@ void KShortLifetimeAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
          ksdistances.push_back(delta_x);
          h_ksdistances->Fill(delta_x);
 
+         ks_distVp_x.push_back(three_mag);
+         ks_distVp_y.push_back(delta_x);
+
+         h_ks_distVp->Fill(three_mag, delta_x);
+
 //         double ks_distVp_x, ks_distVp_y;
 
-         ks_distVp_x = three_mag; s_tree_->Fill();
-         ks_distVp_y = delta_x; s_tree_->Fill();
+//         ks_distVp_x = three_mag; s_tree_->Fill();
+//         ks_distVp_y = delta_x; s_tree_->Fill();
 
          //add points to scatterplot of distance traveled before decay vs (3-)momentum magnitude
          //s_ks_distVp->SetPoint(index, 1.0, 1.0); //s_ks_distVp->GetN(), three_mag, delta_x
@@ -594,7 +605,7 @@ void KShortLifetimeAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
 
    tree_->Fill();
 
-   s_tree_->Write();
+//   s_tree_->Write();
 
 //End edited bit------------------
 

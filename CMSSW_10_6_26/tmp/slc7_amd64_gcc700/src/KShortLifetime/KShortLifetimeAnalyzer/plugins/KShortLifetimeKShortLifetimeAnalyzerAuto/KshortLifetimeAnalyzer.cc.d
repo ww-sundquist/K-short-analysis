@@ -1063,4 +1063,5 @@ tmp/slc7_amd64_gcc700/src/KShortLifetime/KShortLifetimeAnalyzer/plugins/KShortLi
  /cvmfs/cms.cern.ch/slc7_amd64_gcc700/lcg/root/6.14.09-pafccj6/include/TMatrixFUtils.h \
  /cvmfs/cms.cern.ch/slc7_amd64_gcc700/lcg/root/6.14.09-pafccj6/include/TMatrixFUtilsfwd.h \
  /cvmfs/cms.cern.ch/slc7_amd64_gcc700/lcg/root/6.14.09-pafccj6/include/TRotation.h \
- /cvmfs/cms.cern.ch/slc7_amd64_gcc700/lcg/root/6.14.09-pafccj6/include/TGraph.h
+ /cvmfs/cms.cern.ch/slc7_amd64_gcc700/lcg/root/6.14.09-pafccj6/include/TGraph.h \
+ /cvmfs/cms.cern.ch/slc7_amd64_gcc700/lcg/root/6.14.09-pafccj6/include/TH2.h

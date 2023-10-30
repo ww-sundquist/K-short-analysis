@@ -180,19 +180,9 @@ void display() {
 
    cDist->Update();
 
-   //primary vertex distances
-
-//   TH1D *h_pvdistances = (TH1D*)ksFile->Get("kshort/h_pvdistances");
-//   TCanvas *cPvDist = new TCanvas("cPvDist", "How far from the origin are the PVs?", 800, 800);
-//   h_pvdistances->SetTitle("How far from the origin are the PVs?");
-//   h_pvdistances->GetXaxis()->SetTitle("Distance from origin (lab) [cm]");
-//   h_pvdistances->GetYaxis()->SetTitle("Count");
-
-//   h_pvdistances->Draw("HIST");
-
-//   cPvDist->Update();
 
    //K-short lifetimes
+
    TH1D *h_kslifetimes = (TH1D*)ksFile->Get("kshort/h_kslifetimes");
    h_kslifetimes->Add(h_ks_bkgd_lifetimes, -1);//subtract background
    std::cout<<"Background: subtracted."<<std::endl;
@@ -216,19 +206,34 @@ void display() {
 
    //Distance vs. Momentum scatterplot
 
-   TGraph *s_ks_distVp = (TGraph*)ksFile->Get("kshort/s_ks_distVp");
-
-   if (!s_ks_distVp) {
-      std::cerr<<"Error: TGraph 'kshort/s_ks_distVp' not found.\n";
-      ksFile->Close();
-      return 1;
-   }
+   TH2D *h_ks_distVp = (TH2D*)ksFile->Get("kshort/h_ks_distVp");
 
    TCanvas *c_distVp = new TCanvas("c_distVp", "c_distVp", 800, 800);
-   s_ks_distVp->SetTitle("Which K_{s}^{0}'s travel farthest?");
-   s_ks_distVp->GetXaxis()->SetTitle("Momentum [MeV?]");
-   s_ks_distVp->GetYaxis()->SetTitle("Distance [cm]");
-   s_ks_distVp->Draw();
+   h_ks_distVp->SetTitle("Does #Deltax depend on |#vec{p}|?");
+   h_ks_distVp->GetXaxis()->SetTitle("|#vec{p}| [GeV]");
+   h_ks_distVp->GetYaxis()->SetTitle("#Deltax [cm]");
+   h_ks_distVp->SetStats(kFALSE);
+   h_ks_distVp->Draw("colorz");
+
+   TLine *l_beampipe = new TLine(0, 2.2, 40, 2.2);
+   l_beampipe->SetLineColor(kRed);
+   l_beampipe->Draw("SAME");
+
+   TText* t_beampipe = new TText(27, 2.2, Form("%.16s", "Beam pipe radius"));
+   t_beampipe->SetTextSize(0.03);
+   t_beampipe->SetTextColor(kRed);
+   t_beampipe->Draw("SAME");
+
+//   TLine *l_si = new TLine(0, 100, 40, 100);
+//   l_si->SetLineColor(kGreen);
+//   l_si->SetLineStyle(kDashed);
+//   l_si->Draw("SAME");
+
+//   TText* t_si = new TText(27, 100, Form("%.14s", "End Si tracker"));
+//   t_si->SetTextSize(0.03);
+//   t_si->SetTextColor(kGreen);
+//   t_si->Draw("SAME");
+
    c_distVp->Update();
 
 
@@ -268,7 +273,7 @@ void display() {
    h_dipion_mass->Draw();
    dipiCan->Update();
 
-   ksFile->Close();
+//   ksFile->Close();
 }
 
 int main() {
