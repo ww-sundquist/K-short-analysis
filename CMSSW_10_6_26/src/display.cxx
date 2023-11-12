@@ -1,5 +1,8 @@
 #include <math.h>
 #include <TGraph.h>
+#include <TLegend.h>
+#include <TMultiGraph.h>
+#include <TApplication.h>
 
 double exponential(double *t, double *params) { //define generic exponential decay function A*exp(-t/tau)
    double tau = params[0];
@@ -52,10 +55,27 @@ void display() {
    ks_5s_l->SetLineColor(kBlue);
    ks_5s_l->SetLineStyle(kDashed);
 
-   double ks_cut_l = ks_meanVal - 0.5*ks_sigma;
-   double ks_cut_u = ks_meanVal + 0.5*ks_sigma;
-   std::cout<<"Lower cut at "<<ks_cut_l<<std::endl;
-   std::cout<<"Upper cut at "<<ks_cut_u<<std::endl;
+//cut options
+   double ks_cut_l5 = ks_meanVal - 5*ks_sigma;
+   double ks_cut_u5 = ks_meanVal + 5*ks_sigma;
+   std::cout<<"5sig Lower cut at "<<ks_cut_l5<<std::endl;
+   std::cout<<"5sig Upper cut at "<<ks_cut_u5<<std::endl;
+   std::cout<<"-----------------------"<<std::endl;
+   double ks_cut_l3 = ks_meanVal - 3*ks_sigma;
+   double ks_cut_u3 = ks_meanVal + 3*ks_sigma;
+   std::cout<<"3sig Lower cut at "<<ks_cut_l3<<std::endl;
+   std::cout<<"3sig Upper cut at "<<ks_cut_u3<<std::endl;
+   std::cout<<"-----------------------"<<std::endl;
+   double ks_cut_l1 = ks_meanVal - ks_sigma;
+   double ks_cut_u1 = ks_meanVal + ks_sigma;
+   std::cout<<"1sig Lower cut at "<<ks_cut_l1<<std::endl;
+   std::cout<<"1sig Upper cut at "<<ks_cut_u1<<std::endl;
+
+//chose a cut!
+   double ks_cut_l = ks_meanVal - 5*ks_sigma;
+   double ks_cut_u = ks_meanVal + 5*ks_sigma;
+ 
+
 
    h_kshort_mass->Draw();
    ks_gaus->Draw("SAME");
@@ -209,7 +229,7 @@ void display() {
    TH2D *h_ks_distVp = (TH2D*)ksFile->Get("kshort/h_ks_distVp");
 
    TCanvas *c_distVp = new TCanvas("c_distVp", "c_distVp", 800, 800);
-   h_ks_distVp->SetTitle("Does #Deltax depend on |#vec{p}|?");
+   h_ks_distVp->SetTitle("#pm3#sigma mass cuts");
    h_ks_distVp->GetXaxis()->SetTitle("|#vec{p}| [GeV]");
    h_ks_distVp->GetYaxis()->SetTitle("#Deltax [cm]");
    h_ks_distVp->SetStats(kFALSE);
@@ -224,16 +244,29 @@ void display() {
    t_beampipe->SetTextColor(kRed);
    t_beampipe->Draw("SAME");
 
-//   TLine *l_si = new TLine(0, 100, 40, 100);
-//   l_si->SetLineColor(kGreen);
-//   l_si->SetLineStyle(kDashed);
-//   l_si->Draw("SAME");
+   TLine *l_si = new TLine(0, 100, 40, 100);
+   l_si->SetLineColor(kGreen);
+   l_si->SetLineStyle(kDashed);
+   l_si->Draw("SAME");
 
-//   TText* t_si = new TText(27, 100, Form("%.14s", "End Si tracker"));
-//   t_si->SetTextSize(0.03);
-//   t_si->SetTextColor(kGreen);
-//   t_si->Draw("SAME");
+   TText* t_si = new TText(27, 100, Form("%.14s", "End Si tracker"));
+   t_si->SetTextSize(0.03);
+   t_si->SetTextColor(kGreen);
+   t_si->Draw("SAME");
 
+   Int_t n = 400;
+   Double_t x[n], y[n];
+   for (Int_t i=0; i<n; i++) {
+      x[i] = i*0.1; //stepsize
+      y[i] = (8.954E-11)*100*2.998E8*x[i]*pow(pow(x[i],2) + pow(0.498,2),-1/2); //accepted (PDG) values [GeV]
+   }
+   TGraph *theory = new TGraph(n,x,y);
+   theory->SetLineColor(kOrange);
+   theory->SetLineWidth(2);
+   theory->Draw("SAME");
+
+   TLegend* leg = new TLegend(0.1,0.7,0.48,0.9);
+   leg->AddEntry(theory,"Theory: #Deltax = #frac{|#vec{p}|c}{|#vec{p}|^2 + m^2 c^2} #Delta#tau");
    c_distVp->Update();
 
 

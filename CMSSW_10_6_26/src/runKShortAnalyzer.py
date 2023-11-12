@@ -12,6 +12,8 @@ process.kshort = cms.EDAnalyzer('KShortLifetimeAnalyzer',
   offlineSlimmedPrimaryVertices = cms.untracked.InputTag("offlineSlimmedPrimaryVertices"),
   slimmedLambdaVertices = cms.untracked.InputTag("slimmedLambdaVertices"),
 #  offlineSlimmedSecondaryVertices = cms.untracked.InputTag("offlineSlimmedSecondaryVertices")
+  prunedGenParticles = cms.untracked.InputTag("prunedGenParticles"),
+  packedGenParticles = cms.untracked.InputTag("packedGenParticles"),
 )
 process.TFileService = cms.Service("TFileService",
   fileName = cms.string('kshortAnalyze.root')
