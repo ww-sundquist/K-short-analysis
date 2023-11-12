@@ -34,6 +34,10 @@
 
 #include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 #include "DataFormats/Candidate/interface/VertexCompositePtrCandidate.h"
+#include "DataFormats/Candidate/interface/CandidateFwd.h"
+
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
+#include "DataFormats/PatCandidates/interface/PackedGenParticle.h"
 
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
@@ -63,7 +67,7 @@ class KShortLifetimeAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResou
       ~KShortLifetimeAnalyzer();
 
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
-
+      bool isAncestor(const reco::Candidate * ancestor, const reco::Candidate * particle);
 
    private:
       virtual void beginJob() override;
@@ -78,9 +82,13 @@ class KShortLifetimeAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResou
       edm::EDGetTokenT<reco::VertexCompositePtrCandidateCollection> lamcands_;
 //      edm::EDGetTokenT<reco::VertexCollection> secondaryVertices_;
 
+// Necessary for MC Truth access-----------------------------------------v
+//      edm::EDGetTokenT<reco::GenParticleCollection> prunedGenParticles_;
+//      edm::EDGetTokenT<reco::PackedGenParticleCollection> packedGenParticles_;
+// End-------------------------------------------------------------------^
+
       edm::Service<TFileService> fs_;
       TTree* tree_;
-//      TTree* s_tree_;
       std::vector<float> kshort_mass;
       TH1D* h_kshort_mass;
 
@@ -93,14 +101,8 @@ class KShortLifetimeAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResou
       std::vector<float> kslifetimes;
       TH1D* h_kslifetimes;
 
-      std::vector<float> cycrads;
-      TH1D* h_cycrads;
-
       std::vector<float> ksdistances;
       TH1D* h_ksdistances;
-
-//      std::vector<float> pvdistances;
-//      TH1D* h_pvdistances;
 
       std::vector<float> lambda_mass;
       TH1D* h_lambda_mass;
@@ -133,8 +135,6 @@ class KShortLifetimeAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResou
 //
 KShortLifetimeAnalyzer::KShortLifetimeAnalyzer(const edm::ParameterSet& iConfig)
  :
-  //tracksToken_(consumes<TrackCollection>(iConfig.getUntrackedParameter<edm::InputTag>("tracks")))
-//  s_tree_(fs_->make<TTree>("scatterTree","Scatter Plot Data")),
   pfcands_(consumes<pat::PackedCandidateCollection>(iConfig.getUntrackedParameter<edm::InputTag>("packedPFCandidates"))),
   kscands_(consumes<reco::VertexCompositePtrCandidateCollection>(iConfig.getUntrackedParameter<edm::InputTag>("slimmedKshortVertices"))),
   primaryVertices_(consumes<reco::VertexCollection>(iConfig.getUntrackedParameter<edm::InputTag>("offlineSlimmedPrimaryVertices"))),
@@ -149,12 +149,7 @@ KShortLifetimeAnalyzer::KShortLifetimeAnalyzer(const edm::ParameterSet& iConfig)
    tree_->Branch("ks_distVp_x",&ks_distVp_x);
    tree_->Branch("ks_distVp_y",&ks_distVp_y);
 
-//   tree_->Branch("ks_distVp",&ks_distVp);
-   h_ks_distVp = fs_->make<TH2F>("h_ks_distVp","h_ks_distVp",30,0,15,40,0,20);
-
-//   s_tree_ = fs_->make<TTree>("s_tree_","s_tree_"); //one possible thing to come back to: does the "" name have to be diff?
-//   s_tree_->Branch("ks_distVp",&ks_distVp);
-//   s_ks_distVp = fs_->make<TGraph>; //am I allowed to do this?
+   h_ks_distVp = fs_->make<TH2F>("h_ks_distVp","h_ks_distVp",30,0,10,75,0,25);
 
    tree_->Branch("pfNeutralHadron_mass", &pfNeutralHadron_mass);
    h_pfNeutralHadron_mass = fs_->make<TH1D>("h_pfNeutralHadron_mass", "h_pfNeutralHadron_mass", 100, 0.4, 0.6);
@@ -164,9 +159,6 @@ KShortLifetimeAnalyzer::KShortLifetimeAnalyzer(const edm::ParameterSet& iConfig)
 
    tree_->Branch("kslifetimes", &kslifetimes);
    h_kslifetimes = fs_->make<TH1D>("h_kslifetimes", "h_kslifetimes", 30, 0, 8*pow(10,-10));
-
-   tree_->Branch("cycrads",&cycrads);
-   h_cycrads = fs_->make<TH1D>("h_cycrads", "h_cycrads", 35, 0, 15);
 
    tree_->Branch("ksdistances",&ksdistances);
    h_ksdistances = fs_->make<TH1D>("h_ksdistances", "h_ksdistances", 120, 0, 60);
@@ -182,10 +174,6 @@ KShortLifetimeAnalyzer::KShortLifetimeAnalyzer(const edm::ParameterSet& iConfig)
 
    tree_->Branch("ks_bkgd_lifetimes", &ks_bkgd_lifetimes);
    h_ks_bkgd_lifetimes = fs_->make<TH1D>("h_ks_bkgd_lifetimes" , "h_ks_bkgd_lifetimes", 30, 0, 8*pow(10,-10));
-  
-//   double ks_distVp_x, ks_distVp_y; 
-//   s_tree_->Branch("ks_distVp_x",&ks_distVp_x);
-//   s_tree_->Branch("ks_distVp_y",&ks_distVp_y);
 }
 
 
@@ -196,76 +184,6 @@ KShortLifetimeAnalyzer::~KShortLifetimeAnalyzer()
    // (e.g. close files, deallocate resources etc.)
 
 }
-
-float getCen_x(float p_planar_mag, float p_phiAtVtx, float r_xAtVtx, float r_yAtVtx, float mass, float p_thetaAtVtx, float p_mag, float charge) {
-      float p_tAtVtx = p_planar_mag; //(since sin^2 + cos^2 = 1)
-      std::cout << "p_tAtVtx : " << p_tAtVtx << std::endl;
-      float p_xAtVtx = p_tAtVtx*cos(p_phiAtVtx);//convert momenta to cartesian coords [GeV/c]
-      float p_yAtVtx = p_tAtVtx*sin(p_phiAtVtx); // [GeV/c]
-      float B = 3.8; //strength of magnetic field in Teslas (T)
-      float p_zAtVtx = p_tAtVtx*pow( tan(p_thetaAtVtx) , -1); //p_z in GeV/c
-      std::cout << "p_zAtVtx : " << p_zAtVtx << std::endl;
-//      float beta = p_mag*pow( pow(p_mag,2) + pow( mass*2.998*pow(10,8) ,2) , -0.5); //speed in units of v
-//      std::cout << "beta : " << beta << std::endl;
-      float pointer_x = p_yAtVtx*B;//Pointer -> vector to determine where center of cyclotron orbit is (equal to lorentz force vector up to some factors of charge, c, mass, and gamma)
-      float pointer_y = -1*p_xAtVtx*B; //(these may be got from taking a determinant)
-      float pointer_mag = pow( pow(pointer_x,2) + pow(pointer_y,2) , 0.5);
-      float v_planar = p_tAtVtx*pow(p_mag,-1)*1; //planar velocity using v ~ c approx [in units of c]
-      float cycrad_strangeunits = mass*v_planar*pow( charge*B ,-1); //cyclotron radius [in GeV/(c*e*T)]
-      float cycrad = cycrad_strangeunits * 3.336 * pow(10,2); //cyclotron radius in centimeters, using fact that 1 GeV/(ceT) = 3.336 m.
-      std::cout << "cycrad : " << cycrad << " cm" << std::endl;
-      float toCenter_x = cycrad*pointer_x*pow(pointer_mag,-1); //x-vector leading from Vtx to center of cyclotron orbit (note that strange pointer units divide away)
-      float toCenter_y = cycrad*pointer_y*pow(pointer_mag,-1); //y-vector leading from Vtx to center of cyclotron orbit
-      float cen_x = r_xAtVtx + toCenter_x; //center x coord
-      float cen_y = r_yAtVtx + toCenter_y; //center y coord
-      //In the x,y-plane, all points on the particle's trajectory lie *cycrad away from the coordinates (*cen_x, *cen_y)
-      return cen_x;
-   }
-
-float getCycrad(float p_planar_mag, float p_phiAtVtx, float r_xAtVtx, float r_yAtVtx, float mass, float p_thetaAtVtx, float p_mag, float charge) {
-      float p_tAtVtx = p_planar_mag; //(since sin^2 + cos^2 = 1)
-      std::cout << "p_tAtVtx : " << p_tAtVtx << std::endl;
-      float p_xAtVtx = p_tAtVtx*cos(p_phiAtVtx);//convert momenta to cartesian coords [GeV/c]
-      float p_yAtVtx = p_tAtVtx*sin(p_phiAtVtx); // [GeV/c]
-      float B = 3.8; //strength of magnetic field in Teslas (T)
-      float p_zAtVtx = p_tAtVtx*pow( tan(p_thetaAtVtx) , -1); //p_z in GeV/c
-      std::cout << "p_zAtVtx : " << p_zAtVtx << std::endl;
-//      float beta = p_mag*pow( pow(p_mag,2) + pow( mass*2.998*pow(10,8) ,2) , -0.5); //speed in units of v
-//      std::cout << "beta : " << beta << std::endl;
-      float pointer_x = p_yAtVtx*B;//Pointer -> vector to determine where center of cyclotron orbit is (equal to lorentz force vector up to some factors of charge, c, mass, and gamma)
-      float pointer_y = -1*p_xAtVtx*B; //(these may be got from taking a determinant)
-      float pointer_mag = pow( pow(pointer_x,2) + pow(pointer_y,2) , 0.5);
-      float v_planar = p_tAtVtx*pow(p_mag,-1)*1; //planar velocity using v ~ c approx [in units of c]
-      float cycrad_strangeunits = mass*v_planar*pow( charge*B ,-1); //cyclotron radius [in GeV/(c*e*T)]
-      float cycrad = cycrad_strangeunits * 3.336 * pow(10,2); //cyclotron radius in centimeters, using fact that 1 GeV/(ceT) = 3.336 m.
-      return cycrad;
-   }
-
-float getCen_y(float p_planar_mag, float p_phiAtVtx, float r_xAtVtx, float r_yAtVtx, float mass, float p_thetaAtVtx, float p_mag, float charge) {
-      float p_tAtVtx = p_planar_mag; //(since sin^2 + cos^2 = 1)
-      std::cout << "p_tAtVtx : " << p_tAtVtx << std::endl;
-      float p_xAtVtx = p_tAtVtx*cos(p_phiAtVtx);//convert momenta to cartesian coords [GeV/c]
-      float p_yAtVtx = p_tAtVtx*sin(p_phiAtVtx); // [GeV/c]
-      float B = 3.8; //strength of magnetic field in Teslas (T)
-      float p_zAtVtx = p_tAtVtx*pow( tan(p_thetaAtVtx) , -1); //p_z in GeV/c
-      std::cout << "p_zAtVtx : " << p_zAtVtx << std::endl;
-//      float beta = p_mag*pow( pow(p_mag,2) + pow( mass*2.998*pow(10,8) ,2) , -0.5); //speed in units of v
-//      std::cout << "beta : " << beta << std::endl;
-      float pointer_x = p_yAtVtx*B;//Pointer -> vector to determine where center of cyclotron orbit is (equal to lorentz force vector up to some factors of charge, c, mass, and gamma)
-      float pointer_y = -1*p_xAtVtx*B; //(these may be got from taking a determinant)
-      float pointer_mag = pow( pow(pointer_x,2) + pow(pointer_y,2) , 0.5);
-      float v_planar = p_tAtVtx*pow(p_mag,-1)*1; //planar velocity using v ~ c approx [in units of c]
-      float cycrad_strangeunits = mass*v_planar*pow( charge*B ,-1); //cyclotron radius [in GeV/(c*e*T)]
-      float cycrad = cycrad_strangeunits * 3.336 * pow(10,2); //cyclotron radius in centimeters, using fact that 1 GeV/(ceT) = 3.336 m.
-      std::cout << "cycrad : " << cycrad << " cm" << std::endl;
-      float toCenter_x = cycrad*pointer_x*pow(pointer_mag,-1); //x-vector leading from Vtx to center of cyclotron orbit (note that strange pointer units divide away)
-      float toCenter_y = cycrad*pointer_y*pow(pointer_mag,-1); //y-vector leading from Vtx to center of cyclotron orbit
-      float cen_x = r_xAtVtx + toCenter_x; //center x coord
-      float cen_y = r_yAtVtx + toCenter_y; //center y coord
-      std::cout << "cen_y : " << cen_y << std::endl;
-      //In the x,y-plane, all points on the particle's trajectory lie *cycrad away from the coordinates (*cen_x, *cen_y)
-      return cen_y;
-   }
 
 int count_infs = 0; //for some reason there are a lot of candidates that return *cycrad = inf or nan, so I'm counting them
 int count_nans = 0;
@@ -282,185 +200,17 @@ int mctruth_elseNum = 0;
 void KShortLifetimeAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
    using namespace edm;
-//Begin edited bit-----------------
+
    kshort_mass.clear();
    dipion_mass.clear();
    kslifetimes.clear();
-   cycrads.clear();
    ksdistances.clear();
-//   pvdistances.clear();
    lambda_mass.clear();
    lamdistances.clear();
    lamlifetimes.clear();
    ks_bkgd_lifetimes.clear();
-//   ks_distVp_x.clear();
-//   ks_distVp_y.clear();
-//   ks_distVp.clear();
-
-//   s_ks_distVp = fs_->make<TGraph>("ks_distVp","ks_distVp");
-//   TTree *s_tree_ = new TTree("scatterTree","Scatter Plot Data");
-
-//   Double_t ks_distVp_x, ks_distVp_y;
-
-//   s_tree_ = fs_->make<TTree>("s_tree","s_tree");
 
    std::cout << "Run: "<< iEvent.id().run() << " luminosity block: "<< iEvent.eventAuxiliary().luminosityBlock() <<" event: "<< iEvent.id().event() << std::endl;
-
-//   for(const auto& secondaryVertex : iEvent.get(secondaryVertices_) ) {
-//      float svX = secondaryVertex.position().x();
-//      float svY = secondaryVertex.position().y();
-//      float svZ = secondaryVertex.position().z();
-//      std::cout << "SV @ (" << svX << ", " << svY << ", " << svZ << ")\nNo. Assoc. tracks : " << secondaryVertex.nTracks() << std::endl;
-//   }
-
-//   std::vector<float> massList;
-//   massList.clear();
-
-//   for(const auto& pfcand : iEvent.get(pfcands_) ) {
-//      std::cout << "pfcand pt=" << pfcand.pt() << std::endl;
-//      float vX = pfcand.vertex().x();
-//      float vY = pfcand.vertex().y();
-//      float vZ = pfcand.vertex().z();
-//      std::cout << "Closest approach to PV at : (" << vX << ", " << vY << ", " << vZ << ")" << std::endl;
-//      int count = 0;
-//      std::cout<<"Charge : "<<pfcand.charge()<<std::endl;
-//      if(pfcand.charge() == 1) { std::cout<<"Got one."<<std::endl; };
-//      for(const auto& pfcand2 : iEvent.get(pfcands_) ) {
-//         float vX2 = pfcand2.vertex().x();
-//         float vY2 = pfcand2.vertex().y();
-//         float vZ2 = pfcand2.vertex().z();
-//         if(vX == vX2) {
-//            if(vY == vY2) {
-//               if(vZ == vZ2) {
-//                  std::cout << "There exist two+ tracks with same SV." << std::endl;
-//                  count++;
-//                  if(count == 1) {
-//                    std::cout<< "-----------------------\nThere exist exactly two tracks with same SV." << std::endl;
-//                     if(pfcand.charge() == 1) {
-//                        std::cout<<"\nThere is a +1 particle."<<std::endl;
-//                        if(pfcand2.charge() == -1) {
-//                           std::cout<<"************************\nThere exist two such track with appropriate signs."<<std::endl;
-//                           TLorentzVector p1(pfcand.pt(), pfcand.eta(), pfcand.phi(), pfcand.energy());
-//                           TLorentzVector p2(pfcand2.pt(), pfcand2.eta(), pfcand2.phi(), pfcand2.energy());
-//                           TLorentzVector pParent = p1 + p2;
-//                           float mParent = pParent.M();
-//                           dipion_mass.push_back(mParent);
-//                           h_dipion_mass->Fill(mParent);
-//                           std::cout<<"Parent mass : "<<mParent<<std::endl;
-//                           std::cout<<"Got one!"<<std::endl;
-//                        };
-//                     } else if(pfcand.charge() == -1) {
-//                        std::cout<<"\nThere is a -1 particle."<<std::endl; 
-//                        if(pfcand2.charge() == 1) {
-//                           std::cout<<"************************\nThere exist two such track with appropriate signs."<<std::endl;
-//                           TLorentzVector p1(pfcand.pt(), pfcand.eta(), pfcand.phi(), pfcand.energy());
-//                           TLorentzVector p2(pfcand2.pt(), pfcand2.eta(), pfcand2.phi(), pfcand2.energy());
-//                           TLorentzVector pParent = p1 + p2;
-//                           float mParent = pParent.M();
-//                           dipion_mass.push_back(mParent);
-//                           h_dipion_mass->Fill(mParent);
-//                           std::cout<<"Parent mass : "<<mParent<<std::endl;
-//                           std::cout<<"Got one!"<<std::endl;
-//                        };
-//                     } else {
-//                        break;
-//                     }
-//                  }
-//               }
-//            }
-//         }
-//      }
-//   }
-
-//   float getCenter(float p_planar_mag, float p_phiAtVtx, float r_xAtVtx, float r_yAtVtx, float mass, float p_thetaAtVtx, float p_mag, float charge) {
-//      float p_tAtVtx = p_planar_mag; //(since sin^2 + cos^2 = 1)
-//      float p_xAtVtx = p_tAtVtx*cos(p_phiAtVtx)*pow(2.998*pow(10,8),-1);//convert momenta to cartesian coords [GeV/c]
-//      float p_yAtVtx = p_tAtVtx*sin(p_phiAtVtx)*pow(2.998*pow(10,8),-1); // [GeV/c]
-//      float B = 3.8; //strength of magnetic field in Teslas (T)
-//      float p_zAtVtx = p_tAtVtx*pow( p_thetaAtVtx , -1);
-//      float beta = p_mag*2.998*pow(10,8)*pow( pow(p_mag,2) + pow( mass*2.998*pow(10,8) ,2) , -0.5); //speed in units of c
-//      float gamma = 1*pow(1 - pow(beta,2),-0.5); //lorentz factor
-//      float beta_xAtVtx = p_xAtVtx*pow(mass*gamma, -1); //velocity planar components [in c]
-//      float beta_yAtVtx = p_yAtVtx*pow(mass*gamma, -1); //[in c]
-//      float beta_magAtVtx = pow( pow(beta_xAtVtx,2) + pow(beta_yAtVtx,2) ,0.5)  //[in c]
-//      float pointer_x = beta_yAtVtx*B;//Pointer -> vector to determine where center of cyclotron orbit is (equal to lorentz force vector up to some factors of charge and c)
-//      float pointer_y = -1*beta_xAtVtx*B; //(these may be got from taking a determinant)
-//      float pointer_mag = pow( pow(pointer_x,2) + pow(pointer_y,2) , 0.5);
-//      float cycrad_strangeunits = mass*beta_matAtVtx*pow( charge*B ,-1); //cyclotron radius [in GeV/(c*e*T)]
-//      float cycrad = cycrad_strangeunits * 3.336; //cyclotron radius in meters
-//      float toCenter_x = cycrad*pointer_x*pow(pointer_mag,-1); //x-vector leading from Vtx to center of cyclotron orbit (note that strange pointer units divide away)
-//      float toCenter_y = cycrad*pointer_y*pow(pointer_mag,-1); //y-vector leading from Vtx to center of cyclotron orbit
-//      float cen_x = r_xAtVtx + toCenter_x; //center x coord
-//      float cen_y = r_yAtVtx + toCenter_y; //center y coord
-      //In the x,y-plane, all points on the particle's trajectory lie *cycrad away from the coordinates (*cen_x, *cen_y)
-//      std::vector<float> cenCoords; //vector that contakins x, y coords of center
-//      cenCoords.push_back(cen_x);
-//      cenCoords.push_back(cen_y);
-//      return cenCoords;
-//   }
-
-//   for(const auto& pfcand1 : iEvent.get(pfcands_) ) {
-      //Testing
-//      std::cout << "phiAtVtx : " << pfcand1.phiAtVtx() << std::endl;
-      //std::cout << "pxAtVtx : " << pfcand1.pxAtVtx() << std::endl;
-      //std::cout << "v at vtx : " << pfcand1.vxAtVtx() << std::endl;
-
-      //Data analysis
-      //Find components of 3-momentum at .vertex() (aka closest pont on trajectory to PV)
-//      float p_planar_mag1 = pow( pow(pfcand1.px(),2) + pow(pfcand1.py(),2) , 0.5); //magnitude of planar (viz. non-z) component of 3-mom [GeV/c]
-//      std::cout << "p_planar_mag : " << p_planar_mag << std::endl;
-//      float p_phiAtVtx1 = pfcand1.phiAtVtx(); //momentum phi component [GeV/c]
-//      float r_xAtVtx1 = pfcand1.vertex().x(); //get positions [cm]
-//      float r_yAtVtx1 = pfcand1.vertex().y();
-//      std::cout << "r_xAtVtx : " << r_xAtVtx << std::endl;
-//      std::cout << "r_yAtVtx : " << r_yAtVtx << std::endl;
-//      float mass1 = pfcand1.mass(); //mass in units of GeV/c^2
-//      float p_thetaAtVtx1 = 2*atan(exp(-1*pfcand1.etaAtVtx())); //[Gev/c]
-//      float p_mag1 = pow( pow(p_planar_mag1,2) + pow(pfcand1.pz(),2) , 0.5); //magnitude of 3-momentum in GeV/c
-//      float charge1 = pfcand1.charge(); //charge in elementary charges (e)
-
-      //First pass: approximate the trajectory to a cylinder of cyclotron radius and infinite length in z-direction, viz. it suffices for their paths to cross in the x,y-plane at any point in time or along the z-dimension
-//      if (charge1 == 1 || -1) {
-//         float x1 = getCen_x( p_planar_mag1, p_phiAtVtx1, r_xAtVtx1, r_yAtVtx1, mass1, p_thetaAtVtx1, p_mag1, charge1 );
-//         float y1 = getCen_y( p_planar_mag1, p_phiAtVtx1, r_xAtVtx1, r_yAtVtx1, mass1, p_thetaAtVtx1, p_mag1, charge1 );
-//         float cycrad1 = getCycrad( p_planar_mag1, p_phiAtVtx1, r_xAtVtx1, r_yAtVtx1, mass1, p_thetaAtVtx1, p_mag1, charge1 );
-//         if (isinf(cycrad1)) {
-//            std::cout << "Infinite." << std::endl;
-//            count_infs++;
-//         } else if (isnan(cycrad1)) {
-//            std::cout << "NaN." << std::endl;
-//            count_nans++;
-//         } else if (isnormal(cycrad1)) {
-//            cycrads.push_back(cycrad1);
-//            h_cycrads->Fill(cycrad1);
-//         }
-//         std::cout << "Center coordinates:  (" << x1 << ", " << y1 << ")" <<std::endl;
-//      } else { std::cout << "Failed charge criteria." << std::endl; }
-
-//      for(const auto& pfcand2 : iEvent.get(pfcands_) ) {
-      //Data analysis
-      //Find components of 3-momentum at .vertex() (aka closest pont on trajectory to PV)
-//         float p_planar_mag2 = pow( pow(pfcand2.px(),2) + pow(pfcand2.py(),2) , 0.5); //magnitude of planar (viz. non-z) component of 3-mom [GeV/c]
-//         float p_phiAtVtx2 = pfcand2.phiAtVtx(); //momentum phi component [GeV/c]
-//         float r_xAtVtx2 = pfcand2.vertex().x(); //get positions [cm]
-//         float r_yAtVtx2 = pfcand2.vertex().y();
-//         float mass2 = pfcand2.mass(); //mass in units of GeV/c^2
-//         float p_thetaAtVtx2 = 2*atan(exp(-1*pfcand2.etaAtVtx())); //[Gev/c]
-//         float p_mag2 = pow( pow(p_planar_mag2,2) + pow(pfcand2.pz(),2) , 0.5); //magnitude of 3-momentum in GeV/c
-//         float charge2 = pfcand2.charge(); //charge in elementary charges (e)
-//
-      //First pass: approximate the trajectory to a cylinder of cyclotron radius and infinite length in z-direction, viz. it suffices for their paths to cross in the x,y-plane at any point in time or along the z-dimension
-//         if (charge2 == 1 || -1) {
-//            float x2 = getCen_x( p_planar_mag2, p_phiAtVtx2, r_xAtVtx2, r_yAtVtx2, mass2, p_thetaAtVtx2, p_mag2, charge2 );
-//            float y2 = getCen_y( p_planar_mag2, p_phiAtVtx2, r_xAtVtx2, r_yAtVtx2, mass2, p_thetaAtVtx2, p_mag2, charge2 );
-//            float cycrad2 = getCycrad( p_planar_mag2, p_phiAtVtx2, r_xAtVtx2, r_yAtVtx2, mass2, p_thetaAtVtx2, p_mag2, charge2 );
-
-//            std::cout << "Center coordinates:  (" << x2 << ", " << y2 << ")" <<std::endl;
-//         } else { std::cout << "Failed charge criteria." << std::endl; }
-      
-//   }
-
-//   }
 
    std::vector<float> pvXs;
    std::vector<float> pvYs;
@@ -471,8 +221,6 @@ void KShortLifetimeAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
       pvZs.push_back(primaryVertex.position().z());
    }
 
-//   int index = 0;
-
    unsigned counter = 0;
    for(const auto& kscand : iEvent.get(kscands_) ) {
       std::cout << "KShort Candidate pt=" << kscand.pt() << " | mass=" << kscand.mass() << " | No. Daughters: " << kscand.numberOfDaughters() << " | vertex position (x,y,z): " << kscand.position().x() << ", " << kscand.position().y() << ", " << kscand.position().z() << std::endl;
@@ -481,14 +229,24 @@ void KShortLifetimeAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
          std::cout << "    Mass of daughter #" << i << " is " << kscand.daughter(i)->mass() << std::endl;
          std::cout << "    Charge of daughter #" << i << " is " << kscand.daughter(i)->charge()  << std::endl;
       }
-      //mass cuts: ignore candidates w/ masses >1 sigma from mean
-      if (kscand.mass() < 0.495439) {
-         break;
-      } else if (kscand.mass() > 0.501482 ) {
-         break;
+
+      //mass cuts:
+      float lowerlim = 0.468098; //5 sigma
+      float upperlim = 0.528689;
+
+      kshort_mass.push_back(kscand.mass());
+      h_kshort_mass->Fill(kscand.mass());
+
+      if (kscand.mass() < lowerlim or kscand.mass() > upperlim) {
+         //Fill the background lifetimes with lifetime of candidates with masses outside cuts (cf. display.cxx)
+         double delta_x = pow(pow(kscand.position().x()-pvXs[0],2) + pow(kscand.position().y()-pvYs[0],2) + pow(kscand.position().z()-pvZs[0],2),0.5);
+         double tau = delta_x*pow(10,-2)*kscand.mass()*pow(kscand.energy(), -1)*pow(2.998e8, -1);
+         ks_bkgd_lifetimes.push_back(tau);
+         h_ks_bkgd_lifetimes->Fill(tau);
       } else {
-         kshort_mass.push_back(kscand.mass());
-         h_kshort_mass->Fill(kscand.mass());
+
+         //kshort_mass.push_back(kscand.mass());
+         //h_kshort_mass->Fill(kscand.mass());
 
          std::cout << "ID: " << kscand.pdgId() << std::endl;
 
@@ -502,8 +260,6 @@ void KShortLifetimeAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
 
         double pvdist = pow(pow(pvXs[0],2) + pow(pvYs[0],2) + pow(pvZs[0],2),0.5);
         std::cout << "PV DIST : " << pvdist << std::endl;
-//        pvdistances.push_back(pvdist);
-//        h_pvdistances->Fill(pvdist);
 
          double three_mag = pow((kscand.px()*kscand.px()) + (kscand.py()*kscand.py()) + (kscand.pz()*kscand.pz()),0.5);
          double delta_x = pow(pow(kscand.position().x()-pvXs[0],2) + pow(kscand.position().y()-pvYs[0],2) + pow(kscand.position().z()-pvZs[0],2),0.5); //had pvXs[1]?
@@ -515,31 +271,52 @@ void KShortLifetimeAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
 
          h_ks_distVp->Fill(three_mag, delta_x);
 
-//         double ks_distVp_x, ks_distVp_y;
-
-//         ks_distVp_x = three_mag; s_tree_->Fill();
-//         ks_distVp_y = delta_x; s_tree_->Fill();
-
-         //add points to scatterplot of distance traveled before decay vs (3-)momentum magnitude
-         //s_ks_distVp->SetPoint(index, 1.0, 1.0); //s_ks_distVp->GetN(), three_mag, delta_x
-
-//         double tau = delta_x*pow(10,-2)*kscand.mass()*pow(three_mag,-1)*pow(2.998*pow(10,8),-1);
-
          double tau = delta_x*pow(10,-2)*kscand.mass()*pow(kscand.energy(), -1)*pow(2.998e8, -1);
          std::cout << "Lifetime : " << tau << std::endl;
          kslifetimes.push_back(tau);
          h_kslifetimes->Fill(tau);
 
-         //Fill the background lifetimes with lifetime of candidates with masses more than 5 sigma of fit mean (cf. display.cxx)
-         if (kscand.mass() < 0.468245 or kscand.mass() > 0.528676) {
-            ks_bkgd_lifetimes.push_back(tau);
-            h_ks_bkgd_lifetimes->Fill(tau);
-         }
-//         index++;
-//	 std::cout<<"Index : "<<index<<std::endl;
-
       }
+
    }
+
+
+//K-short MC truth---------------------------------------------------------------------------------------------v
+// **** When uncommenting this code, but sure to also uncomment KShortLifetimeAnalyzer > Private > member data code ****
+
+// Get generator information
+//   edm::Handle<reco::GenParticleCollection> prunedGenParts;
+//   iEvent.getByToken(prunedGenParticles_, prunedGenParts);
+//   edm::Handle<pat::PackedGenParticleCollection> packedGenParts;
+//   iEvent.getByToken(packedGenParticles_, packedGenParts);
+
+   // https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookGenParticleCandidate
+   // https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookMiniAOD2015
+//   for(size_t i=0; i<prunedGenParts->size();++i){
+//     const reco::Candidate * genParticle = &(*prunedGenParts)[i];
+     // https://pdg.lbl.gov/2007/reviews/montecarlorpp.pdf
+//     if (abs(genParticle->pdgId()) != 310) continue;
+//     std::cout << "index: "<<i<<" PdgID: " << genParticle->pdgId() << " pt " << genParticle->pt() << " eta: " << genParticle->eta() << " phi: " << genParticle->phi() << std::endl;
+//     std::cout << "  status: "<<genParticle->status()<<std::endl;
+//     std::cout << "  vertex position (x,y,z): "<<genParticle->position().x()<<", "<<genParticle->position().y()<<", "<<genParticle->position().z()<<std::endl;
+//     std::cout << "  daughter:"<<std::endl;
+//     for(size_t j=0; j<packedGenParts->size(); ++j) {
+       //get the pointer to the first survied ancestor of a given packed GenParticle in the prunedCollection 
+//       const reco::Candidate * motherInPrunedCollection = (*packedGenParts)[j].mother(0) ;
+//       if(motherInPrunedCollection != nullptr && isAncestor( genParticle , motherInPrunedCollection)){
+//         std::cout << "    PdgID: " << (*packedGenParts)[j].pdgId() << " pt " << (*packedGenParts)[j].pt() << " eta: " << (*packedGenParts)[j].eta() << " phi: " << (*packedGenParts)[j].phi() << std::endl;
+//       }
+//     }
+//   }
+
+//   for(size_t i=0; i<packedGenParts->size(); ++i) {
+//    const pat::PackedGenParticle * genParticle = &(*packedGenParts)[i];
+//     if (abs(genParticle->pdgId()) != 310) continue;
+//     std::cout << "index: "<<i<<" PdgID: " << genParticle->pdgId() << " pt " << genParticle->pt() << " eta: " << genParticle->eta() << " phi: " << genParticle->phi() << std::endl;
+//     std::cout<<  "  nDaugh: "<<genParticle->numberOfDaughters()<<std::endl;
+
+//End----------------------------------------------------------------------------------------------------------^
+
 
    std::cout << "No. K-short Candidates: " << counter << std::endl;
 
@@ -559,7 +336,6 @@ void KShortLifetimeAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
          double delta_x = pow(pow(lamcand.position().x()-pvXs[0],2) + pow(lamcand.position().y()-pvYs[0],2) + pow(lamcand.position().z()-pvZs[0],2),0.5); //had pvXs[1]?
          lamdistances.push_back(delta_x);
          h_lamdistances->Fill(delta_x);
-
          double tau = delta_x*pow(10,-2)*lamcand.mass()*pow(three_mag,-1)*pow(2.998*pow(10,8),-1);
          std::cout << "Lifetime : " << tau << std::endl;
          lamlifetimes.push_back(tau);
@@ -570,25 +346,7 @@ void KShortLifetimeAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
 
    //try to find two pions
    for(const auto& pfcand1 : iEvent.get(pfcands_) ) {
-//      for(const auto& pfcand2 : iEvent.get(pfcands_) ) {
-//         if( pfcand1.charge() == 1)  {
-//            if( pfcand2.charge() != -1 ) {
-//               break;
-//            } else {
-//               double mSum = pfcand1.mass() + pfcand2.mass();
-//               dipion_mass.push_back(mSum);
-//               h_dipion_mass->Fill(mSum);
-//            }
-//         } else if( pfcand1.charge() == -1 ) {
-//             if( pfcand2.charge() != 1 ) {
-//               break;
-//            } else {
-//               double mSum = pfcand1.mass() + pfcand2.mass();
-//               dipion_mass.push_back(mSum);
-//               h_dipion_mass->Fill(mSum);
-//            }           
-//         }
-//      }
+
       if( pfcand1.pdgId() == 310 ) {
          kscounter++;
          pfNeutralHadron_mass.push_back(pfcand1.mass());
@@ -596,24 +354,9 @@ void KShortLifetimeAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
       }
    }
 
-//   unsigned iVertex = 0;
-//   for(const auto& primaryVertex : iEvent.get(primaryVertices_) ) {
-//      std::cout << "primary vertex["<<iVertex<<"]: (x,y,z): " <<primaryVertex.position().x()<<", "<<primaryVertex.position().y()<<", "<<primaryVertex.position().z()<<std::endl;
-//      iVertex++;
-//   }
-
-
    tree_->Fill();
 
-//   s_tree_->Write();
 
-//End edited bit------------------
-
-//   for(const auto& track : iEvent.get(tracksToken_) ) {
-      // do something with track parameters, e.g, plot the charge.
-      // int charge = track.charge();
-//      std::cout << "track pt: " << track.pt() << std::endl;
-//   }
 
 #ifdef THIS_IS_AN_EVENTSETUP_EXAMPLE
    // if the SetupData is always needed

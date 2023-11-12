@@ -33,7 +33,7 @@ void display() {
    double intlKSMassParams[3] = {0.5,0.1,ksNumEntries};
    TF1 *ks_gaus = new TF1("ks_gaus",gaussian,0.49,0.51,3);
    ks_gaus->SetParameters(intlKSMassParams);
-   ks_gaus->SetRange(0.485,0.515);
+   ks_gaus->SetRange(0.49,0.51);
    h_kshort_mass->Fit(ks_gaus, "R");
 
    double ks_max = h_kshort_mass->GetMaximum();
@@ -71,7 +71,7 @@ void display() {
    std::cout<<"1sig Lower cut at "<<ks_cut_l1<<std::endl;
    std::cout<<"1sig Upper cut at "<<ks_cut_u1<<std::endl;
 
-//chose a cut!
+//choose a cut!
    double ks_cut_l = ks_meanVal - 5*ks_sigma;
    double ks_cut_u = ks_meanVal + 5*ks_sigma;
  
@@ -167,12 +167,21 @@ void display() {
 
 //   ksFile->Close();
 
+   //Plot K-short background lifetimes
    TH1D *h_ks_bkgd_lifetimes = (TH1D*)ksFile->Get("kshort/h_ks_bkgd_lifetimes");
    h_ks_bkgd_lifetimes->SetTitle("Unscaled background");
 
    TCanvas *c_ks_bckgnd = new TCanvas("c_ks_bckgnd","c_ks_bckgnd",800,800);
    c_ks_bckgnd->SetLogy();
+
+   Double_t numEntries = h_ks_bkgd_lifetimes->GetEntries();
+   double initialParams[2] = {pow(10,-11), numEntries};
+   TF1 *e_fit = new TF1("e_fit",exponential,0.05*pow(10,-9),0.35*pow(10,-9),2); //higher range was 0.35*pow(10,-19)
+   e_fit->SetParameters(initialParams);
+   h_ks_bkgd_lifetimes->Fit(e_fit, "R");
+
    h_ks_bkgd_lifetimes->Draw("HIST");
+   e_fit->Draw("SAME");
    c_ks_bckgnd->Update();
 
    h_ks_bkgd_lifetimes->Scale(1.0/shoulderFraction); //background scaled by the shoulder fraction to interpolate between shoulders
@@ -181,6 +190,7 @@ void display() {
    TH1D *h_ksdistances = (TH1D*)ksFile->Get("kshort/h_ksdistances");
    TCanvas *cDist = new TCanvas("cDist", "K_{S}^{0} distance",800,800);
    cDist->SetLogy();
+   
    h_ksdistances->GetXaxis()->SetTitle("Distance traveled before decay (lab) [cm]");
    h_ksdistances->GetYaxis()->SetTitle("Count");
    h_ksdistances->SetTitle("K_{S}^{0} distances");

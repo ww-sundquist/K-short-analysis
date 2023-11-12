@@ -1033,6 +1033,13 @@ tmp/slc7_amd64_gcc700/src/KShortLifetime/KShortLifetimeAnalyzer/plugins/KShortLi
  /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/DataFormats/Candidate/interface/VertexCompositePtrCandidateFwd.h \
  /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/DataFormats/Candidate/interface/CompositePtrCandidate.h \
  /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/DataFormats/Candidate/interface/LeafCandidate.h \
+ /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/DataFormats/HepMCCandidate/interface/GenParticle.h \
+ /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/DataFormats/Candidate/interface/CompositeRefCandidateT.h \
+ /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/DataFormats/HepMCCandidate/interface/GenParticleFwd.h \
+ /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/DataFormats/Common/interface/FwdRef.h \
+ /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/DataFormats/Common/interface/FwdPtr.h \
+ /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/DataFormats/HepMCCandidate/interface/GenStatusFlags.h \
+ /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/DataFormats/PatCandidates/interface/PackedGenParticle.h \
  /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/FWCore/ServiceRegistry/interface/Service.h \
  /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/CommonTools/UtilAlgos/interface/TFileService.h \
  /cvmfs/cms.cern.ch/slc7_amd64_gcc700/cms/cmssw/CMSSW_10_6_26/src/CommonTools/Utils/interface/TFileDirectory.h \
